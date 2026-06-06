@@ -97,7 +97,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div style={S.sub}>польовий журнал витрат · v4</div>
+            <div style={S.sub}>польовий журнал витрат · v5</div>
           </div>
         </div>
       </header>
@@ -300,7 +300,6 @@ function Summary({ crew, crewName, onClose }) {
 }
 
 function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary }) {
-  const groups = ["drone", "ammo", "supply"];
   const lowCount = crew.components.filter((c) => c.qty <= c.min).length;
   const [note, setNote] = useState("");
 
@@ -317,82 +316,97 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
     return c ? { ...c, count: q } : null;
   }).filter(Boolean);
 
-  return (
-    <div className="stock-grid">
-      {lowCount > 0 && <div className="stock-block" style={S.alert}><Icon d={Ic.warn} size={15} /> Низький залишок: {lowCount} поз.</div>}
-
-      {groups.map((g) => {
-        const items = crew.components.filter((c) => c.type === g);
-        if (!items.length) return null;
-        const canAdd = g === "drone" || g === "ammo";
-        return (
-          <div key={g} className="stock-block" style={{ marginBottom: 16 }}>
-            <div style={{ ...S.groupLabel, color: TYPE_COLOR[g] }}>{TYPE_LABEL[g]}</div>
-            {items.map((c) => {
-              const low = c.qty <= c.min;
-              return (
-                <div key={c.id} style={{ ...S.row, ...(low ? S.rowLow : {}) }}>
-                  {canAdd && (
-                    <button className="pop" style={S.addBtn} onClick={() => { haptic(); onAddToLoadout(c.id); }} disabled={c.qty < 1}><Icon d={Ic.plus} size={16} /></button>
-                  )}
-                  <div style={{ flex: 1 }}>
-                    <div style={S.rowName}>{c.name}</div>
-                    {spentToday[c.name] ? <div style={S.rowSpent}>−{spentToday[c.name].qty} сьогодні</div> : null}
-                  </div>
-                  <div style={{ ...S.qty, color: low ? "#ff6b6b" : "#e8edf4" }}>
-                    {c.qty}<span style={S.unit}>{c.unit}</span>
-                  </div>
-                  <button className="pop" style={S.gear} onClick={() => { haptic(); onGear(c); }}><Icon d={Ic.gear} size={16} /></button>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
-
-      <div className="stock-block" style={S.actions}>
-        <button style={S.btnGhost} onClick={onIntake}><Icon d={Ic.download} size={15} /> Надходження</button>
-        <button style={S.btnGhost} onClick={onAdd}><Icon d={Ic.plus} size={15} /> Компонент</button>
-      </div>
-
-      <div className="stock-block" style={S.loadout}>
-        <div style={S.loadoutHead}>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon d={Ic.send} size={14} color="#f2a65e" /> Комплектація вильоту</span>
-          {loadoutItems.length > 0 && <button style={S.clearBtn} onClick={onClearLoadout}>Очистити</button>}
-        </div>
-        {loadoutItems.length === 0 ? (
-          <div style={S.loadoutHint}>Натисніть «+» біля борту або БК, щоб зібрати виліт</div>
-        ) : (
-          <React.Fragment>
-            {loadoutItems.map((it) => (
-              <div key={it.id} style={S.loadoutRow}>
-                <span style={{ flex: 1 }}>{it.name}</span>
-                <button className="pop" style={S.stepBtn} onClick={() => { haptic(); onLoadoutChange(it.id, -1); }}><Icon d={Ic.minus} size={13} /></button>
-                <span style={S.count}>{it.count}</span>
-                <button className="pop" style={S.stepBtn} onClick={() => { haptic(); onLoadoutChange(it.id, +1); }} disabled={it.count >= it.qty}><Icon d={Ic.plus} size={13} /></button>
-              </div>
-            ))}
-            <input style={{ ...S.input, marginTop: 10, marginBottom: 0 }} placeholder="Примітка / ціль (необов'язково)"
-              value={note} onChange={(e) => setNote(e.target.value)} />
-            <button className="pop" style={S.btnLaunch} onClick={() => { haptic(30); onLaunch(note.trim()); setNote(""); }}>
-              <Icon d={Ic.send} size={16} /> ВИЛІТ — списати з таблиці
-            </button>
-          </React.Fragment>
+  const renderComponent = (c, canAdd) => {
+    const low = c.qty <= c.min;
+    return (
+      <div key={c.id} style={{ ...S.row, ...(low ? S.rowLow : {}) }}>
+        {canAdd && (
+          <button className="pop" style={S.addBtn} onClick={() => { haptic(); onAddToLoadout(c.id); }} disabled={c.qty < 1}><Icon d={Ic.plus} size={16} /></button>
         )}
+        <div style={{ flex: 1 }}>
+          <div style={S.rowName}>{c.name}</div>
+          {spentToday[c.name] ? <div style={S.rowSpent}>−{spentToday[c.name].qty} сьогодні</div> : null}
+        </div>
+        <div style={{ ...S.qty, color: low ? "#ff6b6b" : "#e8edf4" }}>
+          {c.qty}<span style={S.unit}>{c.unit}</span>
+        </div>
+        <button className="pop" style={S.gear} onClick={() => { haptic(); onGear(c); }}><Icon d={Ic.gear} size={16} /></button>
+      </div>
+    );
+  };
+
+  const renderGroup = (g) => {
+    const items = crew.components.filter((c) => c.type === g);
+    if (!items.length) return null;
+    const canAdd = g === "drone" || g === "ammo";
+    return (
+      <div key={g} style={{ marginBottom: 16 }}>
+        <div style={{ ...S.groupLabel, color: TYPE_COLOR[g] }}>{TYPE_LABEL[g]}</div>
+        <div className="comp-list">{items.map((c) => renderComponent(c, canAdd))}</div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="stock-layout">
+      {lowCount > 0 && <div style={{ ...S.alert, gridColumn: "1 / -1" }}><Icon d={Ic.warn} size={15} /> Низький залишок: {lowCount} поз.</div>}
+
+      {/* Колонка 1: борти та БК */}
+      <div className="stock-col">
+        {renderGroup("drone")}
+        {renderGroup("ammo")}
       </div>
 
-      <div className="stock-block" style={S.todayBox}>
-        <div style={S.todayLabel}>Витрачено за добу</div>
-        {Object.keys(spentToday).length === 0
-          ? <div style={S.todayEmpty}>Витрат сьогодні немає</div>
-          : Object.entries(spentToday).map(([n, v]) => (
-            <div key={n} style={S.todayRow}><span>{n}</span><b>−{v.qty} {v.unit}</b></div>
-          ))}
+      {/* Колонка 2: розхідники + кнопки дій */}
+      <div className="stock-col">
+        {renderGroup("supply")}
+        <div style={S.actions}>
+          <button style={S.btnGhost} onClick={onIntake}><Icon d={Ic.download} size={15} /> Надходження</button>
+          <button style={S.btnGhost} onClick={onAdd}><Icon d={Ic.plus} size={15} /> Компонент</button>
+        </div>
       </div>
 
-      <button className="stock-block" style={{ ...S.btnGhost, width: "100%", marginTop: 12 }} onClick={() => { haptic(); onSummary(); }}>
-        <Icon d={Ic.pkg} size={15} /> Залишок бортів, БК, витратників
-      </button>
+      {/* Колонка 3: комплектація вильоту, витрати за добу, залишок */}
+      <div className="stock-col">
+        <div style={S.loadout}>
+          <div style={S.loadoutHead}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon d={Ic.send} size={14} color="#f2a65e" /> Комплектація вильоту</span>
+            {loadoutItems.length > 0 && <button style={S.clearBtn} onClick={onClearLoadout}>Очистити</button>}
+          </div>
+          {loadoutItems.length === 0 ? (
+            <div style={S.loadoutHint}>Натисніть «+» біля борту або БК, щоб зібрати виліт</div>
+          ) : (
+            <React.Fragment>
+              {loadoutItems.map((it) => (
+                <div key={it.id} style={S.loadoutRow}>
+                  <span style={{ flex: 1 }}>{it.name}</span>
+                  <button className="pop" style={S.stepBtn} onClick={() => { haptic(); onLoadoutChange(it.id, -1); }}><Icon d={Ic.minus} size={13} /></button>
+                  <span style={S.count}>{it.count}</span>
+                  <button className="pop" style={S.stepBtn} onClick={() => { haptic(); onLoadoutChange(it.id, +1); }} disabled={it.count >= it.qty}><Icon d={Ic.plus} size={13} /></button>
+                </div>
+              ))}
+              <input style={{ ...S.input, marginTop: 10, marginBottom: 0 }} placeholder="Примітка / ціль (необов'язково)"
+                value={note} onChange={(e) => setNote(e.target.value)} />
+              <button className="pop" style={S.btnLaunch} onClick={() => { haptic(30); onLaunch(note.trim()); setNote(""); }}>
+                <Icon d={Ic.send} size={16} /> ВИЛІТ — списати з таблиці
+              </button>
+            </React.Fragment>
+          )}
+        </div>
+
+        <div style={S.todayBox}>
+          <div style={S.todayLabel}>Витрачено за добу</div>
+          {Object.keys(spentToday).length === 0
+            ? <div style={S.todayEmpty}>Витрат сьогодні немає</div>
+            : Object.entries(spentToday).map(([n, v]) => (
+              <div key={n} style={S.todayRow}><span>{n}</span><b>−{v.qty} {v.unit}</b></div>
+            ))}
+        </div>
+
+        <button style={{ ...S.btnGhost, width: "100%", marginTop: 12 }} onClick={() => { haptic(); onSummary(); }}>
+          <Icon d={Ic.pkg} size={15} /> Залишок бортів, БК, витратників
+        </button>
+      </div>
     </div>
   );
 }
