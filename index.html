@@ -41,10 +41,23 @@
   <script type="text/babel" data-presets="react" src="app.js"></script>
 
   <script>
-    // Реєстрація service worker для офлайн-роботи
+    // Реєстрація service worker + автоматичне оновлення
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+          // періодична перевірка нової версії (раз на годину, поки застосунок відкритий)
+          setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+          // якщо знайдено нову версію — вона встановиться у фоні
+        }).catch(() => {});
+
+        // Коли новий service worker перебрав контроль — перезавантажуємо сторінку один раз,
+        // щоб показати свіжу версію без ручних дій.
+        let reloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (reloaded) return;
+          reloaded = true;
+          window.location.reload();
+        });
       });
     }
   </script>
