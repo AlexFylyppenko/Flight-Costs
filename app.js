@@ -97,7 +97,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v6</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v7</div>
           </div>
         </div>
       </header>
@@ -360,7 +360,7 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
       {/* Колонка 2: розхідники + кнопки дій */}
       <div className="stock-col">
         {renderGroup("supply")}
-        <div style={S.actions}>
+        <div className="action-buttons" style={S.actions}>
           <button style={S.btnGhost} onClick={onIntake}><Icon d={Ic.download} size={15} /> Надходження</button>
           <button style={S.btnGhost} onClick={onAdd}><Icon d={Ic.plus} size={15} /> Компонент</button>
         </div>
