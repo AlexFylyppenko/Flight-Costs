@@ -52,8 +52,7 @@
       -webkit-touch-callout: default;
     }
 
-    /* Горизонтальний режим: три колонки за схемою, зменшений масштаб,
-       компоненти всередині категорій — у кілька стовпців. */
+    /* Горизонтальний режим: три колонки за схемою, зменшений масштаб. */
     @media screen and (orientation: landscape) {
       #root > div { max-width: none !important; }
       /* зменшення масштабу всього вмісту приблизно в 1.3 раза */
@@ -65,16 +64,22 @@
         align-items: start;
       }
       .stock-col { min-width: 0; }
-      /* компоненти всередині категорії — у 2 стовпці, щоб не доводилось гортати */
-      .comp-list {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
+
+      /* Заголовок застосунку — менший у горизонтальному режимі (приблизно вдвічі) */
+      header { padding-top: max(8px, env(safe-area-inset-top)) !important; padding-bottom: 6px !important; }
+      header svg { width: 16px !important; height: 16px !important; }
+      .app-title { font-size: 11px !important; }
+      .app-sub { font-size: 8px !important; }
+
+      /* Спливаючі вікна — по центру екрана та компактніші */
+      .modal-overlay { align-items: center !important; }
+      .modal-sheet {
+        max-width: 420px !important;
+        border-radius: 16px !important;
+        font-size: 0.85rem;
+        max-height: 82vh !important;
+        padding-bottom: 18px !important;
       }
-    }
-    /* широкий екран — компоненти у 3 стовпці */
-    @media screen and (orientation: landscape) and (min-width: 1000px) {
-      .comp-list { grid-template-columns: 1fr 1fr 1fr; }
     }
   </style>
 </head>

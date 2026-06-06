@@ -96,8 +96,8 @@ function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
-            <div style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div style={S.sub}>польовий журнал витрат · v5</div>
+            <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v6</div>
           </div>
         </div>
       </header>
@@ -342,7 +342,7 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
     return (
       <div key={g} style={{ marginBottom: 16 }}>
         <div style={{ ...S.groupLabel, color: TYPE_COLOR[g] }}>{TYPE_LABEL[g]}</div>
-        <div className="comp-list">{items.map((c) => renderComponent(c, canAdd))}</div>
+        {items.map((c) => renderComponent(c, canAdd))}
       </div>
     );
   };
@@ -477,8 +477,8 @@ function History({ crew }) {
 
 function Shell({ title, onClose, children }) {
   return (
-    <div style={S.overlay} onClick={onClose}>
-      <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" style={S.overlay} onClick={onClose}>
+      <div className="modal-sheet" style={S.sheet} onClick={(e) => e.stopPropagation()}>
         <div style={S.sheetHead}><span>{title}</span><button style={S.close} onClick={onClose}><Icon d={Ic.x} size={18} /></button></div>
         {children}
       </div>
