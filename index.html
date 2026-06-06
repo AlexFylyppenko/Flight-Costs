@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Облік · Дрони / БК</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0c0f14" />
+
+  <!-- iOS встановлення на головний екран -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Облік БК" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap');
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #0c0f14; overscroll-behavior: none; }
+    body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+    input, select { outline: none; font-family: inherit; }
+    button { font-family: inherit; }
+    button:active { transform: scale(.98); }
+    button:disabled { opacity: .35; }
+    @keyframes popAnim { 0% { transform: scale(1);} 40% { transform: scale(.82);} 100% { transform: scale(1);} }
+    .pop:active { animation: popAnim .22s ease; filter: brightness(1.35); }
+    /* безпечні зони iPhone (вирізи, домашня смуга) */
+    #root { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="react" src="app.js"></script>
+
+  <script>
+    // Реєстрація service worker для офлайн-роботи
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
