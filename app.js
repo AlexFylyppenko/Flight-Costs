@@ -97,7 +97,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div style={S.sub}>польовий журнал витрат · v3</div>
+            <div style={S.sub}>польовий журнал витрат · v4</div>
           </div>
         </div>
       </header>
@@ -125,7 +125,7 @@ function App() {
         </button>
       </div>
 
-      <main style={S.main}>
+      <main className="main-content" style={S.main}>
         {tab === "stock"
           ? <Stock crew={crew} loadout={curLoadout}
               onIntake={() => setModal("intake")} onAdd={() => setModal("addComp")}
@@ -318,15 +318,15 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
   }).filter(Boolean);
 
   return (
-    <React.Fragment>
-      {lowCount > 0 && <div style={S.alert}><Icon d={Ic.warn} size={15} /> Низький залишок: {lowCount} поз.</div>}
+    <div className="stock-grid">
+      {lowCount > 0 && <div className="stock-block" style={S.alert}><Icon d={Ic.warn} size={15} /> Низький залишок: {lowCount} поз.</div>}
 
       {groups.map((g) => {
         const items = crew.components.filter((c) => c.type === g);
         if (!items.length) return null;
         const canAdd = g === "drone" || g === "ammo";
         return (
-          <div key={g} style={{ marginBottom: 16 }}>
+          <div key={g} className="stock-block" style={{ marginBottom: 16 }}>
             <div style={{ ...S.groupLabel, color: TYPE_COLOR[g] }}>{TYPE_LABEL[g]}</div>
             {items.map((c) => {
               const low = c.qty <= c.min;
@@ -350,12 +350,12 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
         );
       })}
 
-      <div style={S.actions}>
+      <div className="stock-block" style={S.actions}>
         <button style={S.btnGhost} onClick={onIntake}><Icon d={Ic.download} size={15} /> Надходження</button>
         <button style={S.btnGhost} onClick={onAdd}><Icon d={Ic.plus} size={15} /> Компонент</button>
       </div>
 
-      <div style={S.loadout}>
+      <div className="stock-block" style={S.loadout}>
         <div style={S.loadoutHead}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon d={Ic.send} size={14} color="#f2a65e" /> Комплектація вильоту</span>
           {loadoutItems.length > 0 && <button style={S.clearBtn} onClick={onClearLoadout}>Очистити</button>}
@@ -381,7 +381,7 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
         )}
       </div>
 
-      <div style={S.todayBox}>
+      <div className="stock-block" style={S.todayBox}>
         <div style={S.todayLabel}>Витрачено за добу</div>
         {Object.keys(spentToday).length === 0
           ? <div style={S.todayEmpty}>Витрат сьогодні немає</div>
@@ -390,10 +390,10 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
           ))}
       </div>
 
-      <button style={{ ...S.btnGhost, width: "100%", marginTop: 12 }} onClick={() => { haptic(); onSummary(); }}>
+      <button className="stock-block" style={{ ...S.btnGhost, width: "100%", marginTop: 12 }} onClick={() => { haptic(); onSummary(); }}>
         <Icon d={Ic.pkg} size={15} /> Залишок бортів, БК, витратників
       </button>
-    </React.Fragment>
+    </div>
   );
 }
 
