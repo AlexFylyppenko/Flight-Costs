@@ -136,6 +136,7 @@ function App() {
                 if (n <= 0) delete copy[id]; else copy[id] = n; return copy;
               })}
               onClearLoadout={() => setCrewLoadout(() => ({}))}
+              onSummary={() => setModal("summary")}
               onLaunch={(note) => {
                 update((cr) => {
                   const items = [];
@@ -232,11 +233,73 @@ function App() {
         update((cr) => { adds.forEach((a) => { const c = cr.components.find((x) => x.id === a.id); if (c) c.qty += a.qty; }); return cr; });
         setModal(null);
       }} />}
+
+      {modal === "summary" && <Summary crew={crew} crewName={active} onClose={() => setModal(null)} />}
     </div>
   );
 }
 
-function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch }) {
+function buildSummaryText(crew, crewName) {
+  const byType = (t) => crew.components.filter((c) => c.type === t);
+  const line = (c) => `• ${c.name}: ${c.qty} ${c.unit}`;
+  const section = (label, items) => `${label}\n` + (items.length ? items.map(line).join("\n") : "—");
+  return [
+    `Екіпаж ${crewName}`,
+    "",
+    section("Залишок бортів:", byType("drone")),
+    "",
+    section("БК:", byType("ammo")),
+    "",
+    section("Витратники:", byType("supply")),
+  ].join("\n");
+}
+
+function Summary({ crew, crewName, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const text = buildSummaryText(crew, crewName);
+
+  const copy = async () => {
+    haptic(20);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch (e) {
+      // запасний варіант, якщо clipboard API недоступний
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand("copy"); setCopied(true); } catch (err) {}
+      document.body.removeChild(ta);
+    }
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const byType = (t) => crew.components.filter((c) => c.type === t);
+  const Section = ({ label, items }) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={S.sumSecLabel}>{label}</div>
+      {items.length ? items.map((c) => (
+        <div key={c.id} style={S.sumItem}><span>{c.name}</span><b>{c.qty} {c.unit}</b></div>
+      )) : <div style={S.sumItemEmpty}>—</div>}
+    </div>
+  );
+
+  return (
+    <Shell title="Залишок по екіпажу" onClose={onClose}>
+      <div style={S.sumCrewName}>Екіпаж {crewName}</div>
+      <div style={S.sumScroll}>
+        <Section label="Залишок бортів" items={byType("drone")} />
+        <Section label="БК" items={byType("ammo")} />
+        <Section label="Витратники" items={byType("supply")} />
+      </div>
+      <button className="pop" style={{ ...S.btnPrimary, background: copied ? "#1d3527" : "#1d2735", borderColor: copied ? "#3a7a52" : "#2f4763" }} onClick={copy}>
+        {copied ? "✓ Скопійовано" : "Скопіювати текст"}
+      </button>
+    </Shell>
+  );
+}
+
+function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary }) {
   const groups = ["drone", "ammo", "supply"];
   const lowCount = crew.components.filter((c) => c.qty <= c.min).length;
   const [note, setNote] = useState("");
@@ -326,6 +389,10 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
             <div key={n} style={S.todayRow}><span>{n}</span><b>−{v.qty} {v.unit}</b></div>
           ))}
       </div>
+
+      <button style={{ ...S.btnGhost, width: "100%", marginTop: 12 }} onClick={() => { haptic(); onSummary(); }}>
+        <Icon d={Ic.pkg} size={15} /> Залишок бортів, БК, витратників
+      </button>
     </React.Fragment>
   );
 }
@@ -583,6 +650,11 @@ const S = {
   intakeRow: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #181e27", fontSize: 13 },
   miniInput: { width: 64, background: "#0c0f14", border: "1px solid #232c38", color: "#e8edf4", padding: "7px 8px", borderRadius: 6, fontSize: 16, textAlign: "center", fontFamily: "'IBM Plex Mono', monospace" },
   muted: { color: "#5b6472", fontSize: 12 },
+  sumCrewName: { fontSize: 15, fontWeight: 700, color: "#f2a65e", marginBottom: 14, fontFamily: "'IBM Plex Mono', monospace" },
+  sumScroll: { maxHeight: "55vh", overflowY: "auto", marginBottom: 4 },
+  sumSecLabel: { fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "#8a93a3", marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" },
+  sumItem: { display: "flex", justifyContent: "space-between", fontSize: 14, padding: "5px 0", color: "#cdd5e0", borderBottom: "1px solid #181e27" },
+  sumItemEmpty: { fontSize: 14, color: "#5b6472", padding: "5px 0" },
 };
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
