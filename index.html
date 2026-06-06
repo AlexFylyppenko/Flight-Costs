@@ -29,6 +29,34 @@
     .pop:active { animation: popAnim .22s ease; filter: brightness(1.35); }
     /* безпечні зони iPhone (вирізи, домашня смуга) */
     #root { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
+    /* Заборона виділення тексту інтерфейсу та системного меню (Copy/Look Up) при довгому натисканні.
+       Поля вводу — виняток, у них виділення лишається. */
+    * {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    input, textarea {
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+
+    /* Фіксація вертикальної орієнтації: якщо телефон повертають горизонтально,
+       повертаємо вміст назад у вертикальний вигляд (запасний метод для iOS Safari,
+       який ігнорує orientation з manifest). */
+    @media screen and (orientation: landscape) and (max-width: 950px) {
+      #root {
+        transform: rotate(-90deg);
+        transform-origin: left top;
+        width: 100vh;
+        height: 100vw;
+        position: absolute;
+        top: 100%;
+        left: 0;
+      }
+    }
   </style>
 </head>
 <body>

@@ -97,7 +97,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div style={S.sub}>польовий журнал витрат · v2</div>
+            <div style={S.sub}>польовий журнал витрат · v3</div>
           </div>
         </div>
       </header>
@@ -485,12 +485,24 @@ function NewCrew({ onClose, onSave, existing }) {
 
 function RenameCrew({ current, existing, canDelete, onClose, onSave, onDelete }) {
   const [name, setName] = useState("");
+  const inputRef = useRef(null);
+  useEffect(() => {
+    // ставимо курсор у поле, але не виділяємо текст
+    const t = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        const len = inputRef.current.value.length;
+        try { inputRef.current.setSelectionRange(len, len); } catch (e) {}
+      }
+    }, 100);
+    return () => clearTimeout(t);
+  }, []);
   const trimmed = name.trim();
   const ok = trimmed === "" || trimmed === current || !existing.includes(trimmed);
   const finalName = trimmed === "" ? current : trimmed;
   return (
     <Shell title="Перейменувати екіпаж" onClose={onClose}>
-      <input style={S.input} placeholder={current} value={name} onChange={(e) => setName(e.target.value)} />
+      <input ref={inputRef} style={S.input} placeholder={current} value={name} onChange={(e) => setName(e.target.value)} />
       <button disabled={!ok} style={{ ...S.btnPrimary, opacity: ok ? 1 : .4 }} onClick={() => onSave(finalName)}>Зберегти</button>
       {canDelete && (
         <button style={{ ...S.btnDanger, width: "100%" }} onClick={onDelete}>Видалити екіпаж</button>
