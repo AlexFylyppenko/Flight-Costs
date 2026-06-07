@@ -99,12 +99,18 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v11</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v12</div>
           </div>
         </div>
         <div className="ua-flag" aria-hidden="true">
-          <div className="ua-flag-blue"></div>
-          <div className="ua-flag-yellow"></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
         </div>
       </header>
 
