@@ -15,6 +15,7 @@ const Ic = {
   users: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   gear: "M20 7h-9M14 17H5M17 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM7 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  wrench: "M14.7 6.3a4 4 0 0 1-5.6 5.6L3 18l3 3 6.1-6.1a4 4 0 0 1 5.6-5.6l-2.5 2.5-2-2 2.5-2.5z",
 };
 function Icon({ d, size = 18, color = "currentColor", style }) {
   return React.createElement("svg", {
@@ -46,6 +47,7 @@ function seedCrew() {
       { id: uid(), name: "Скотч", qty: 7, unit: "шт", type: "supply", min: 2 },
     ],
     history: [],
+    notReady: [], // борти "Не БГ": { name, unit, qty }
   };
 }
 
@@ -97,7 +99,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v8</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v9</div>
           </div>
         </div>
       </header>
@@ -138,6 +140,19 @@ function App() {
               onClearLoadout={() => setCrewLoadout(() => ({}))}
               onSummary={() => setModal("summary")}
               onEditToday={() => setModal("editToday")}
+              onMarkNotReady={(c) => {
+                update((cr) => {
+                  const comp = cr.components.find((x) => x.id === c.id);
+                  if (!comp || comp.qty < 1) return cr;
+                  comp.qty -= 1;
+                  if (!cr.notReady) cr.notReady = [];
+                  const existing = cr.notReady.find((n) => n.name === comp.name);
+                  if (existing) existing.qty += 1;
+                  else cr.notReady.push({ name: comp.name, unit: comp.unit, qty: 1 });
+                  return cr;
+                });
+              }}
+              onEditNotReady={() => setModal("editNotReady")}
               onLaunch={(note) => {
                 update((cr) => {
                   const items = [];
@@ -237,6 +252,24 @@ function App() {
 
       {modal === "summary" && <Summary crew={crew} crewName={active} onClose={() => setModal(null)} />}
 
+      {modal === "editNotReady" && <EditNotReady crew={crew} onClose={() => setModal(null)} onApply={(actions) => {
+        update((cr) => {
+          if (!cr.notReady) cr.notReady = [];
+          actions.forEach((a) => {
+            const nr = cr.notReady.find((n) => n.name === a.name);
+            if (!nr) return;
+            nr.qty = a.newQty;
+            if (a.restore > 0) {
+              const comp = cr.components.find((x) => x.name === a.name && x.type === "drone");
+              if (comp) comp.qty += a.restore;
+            }
+          });
+          cr.notReady = cr.notReady.filter((n) => n.qty > 0);
+          return cr;
+        });
+        setModal(null);
+      }} />}
+
       {modal === "editToday" && <EditToday crew={crew} onClose={() => setModal(null)} onApply={(changes) => {
         update((cr) => {
           // changes: { name: newQty } — нова сумарна витрата за сьогодні для кожної позиції
@@ -266,6 +299,70 @@ function App() {
         setModal(null);
       }} />}
     </div>
+  );
+}
+
+function EditNotReady({ crew, onClose, onApply }) {
+  const notReady = crew.notReady || [];
+  // для кожної позиції тримаємо: writeOff (списано, зникає) і restore (повернуто в боєготові)
+  const [ops, setOps] = useState(() => {
+    const o = {};
+    notReady.forEach((nr) => { o[nr.name] = { writeOff: 0, restore: 0 }; });
+    return o;
+  });
+
+  const remaining = (nr) => nr.qty - (ops[nr.name]?.writeOff || 0) - (ops[nr.name]?.restore || 0);
+
+  const bump = (name, field, delta, max) => {
+    setOps((prev) => {
+      const cur = prev[name] || { writeOff: 0, restore: 0 };
+      const other = field === "writeOff" ? cur.restore : cur.writeOff;
+      const next = Math.max(0, Math.min(cur[field] + delta, max - other));
+      return { ...prev, [name]: { ...cur, [field]: next } };
+    });
+  };
+
+  const finalActions = notReady.map((nr) => {
+    const op = ops[nr.name] || { writeOff: 0, restore: 0 };
+    return { name: nr.name, newQty: nr.qty - op.writeOff - op.restore, restore: op.restore };
+  });
+  const hasChanges = finalActions.some((a, i) => a.newQty !== notReady[i].qty);
+
+  return (
+    <Shell title="Редагувати «Не БГ»" onClose={onClose}>
+      {notReady.length === 0 ? (
+        <div style={S.todayEmpty}>Список порожній</div>
+      ) : (
+        <div style={S.scrollList}>
+          {notReady.map((nr) => {
+            const op = ops[nr.name] || { writeOff: 0, restore: 0 };
+            return (
+              <div key={nr.name} style={{ borderBottom: "1px solid #181e27", padding: "12px 0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 14 }}>{nr.name}</span>
+                  <b style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{remaining(nr)} {nr.unit}</b>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={{ ...S.nrAction, borderColor: "#5a3f2f", color: "#f2a65e" }}
+                    disabled={remaining(nr) <= 0}
+                    onClick={() => { haptic(); bump(nr.name, "writeOff", 1, nr.qty); }}>
+                    − Списати{op.writeOff ? ` (${op.writeOff})` : ""}
+                  </button>
+                  <button style={{ ...S.nrAction, borderColor: "#2f6347", color: "#5edb8f" }}
+                    disabled={remaining(nr) <= 0}
+                    onClick={() => { haptic(); bump(nr.name, "restore", 1, nr.qty); }}>
+                    ↩ У боєготові{op.restore ? ` (${op.restore})` : ""}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <button disabled={!hasChanges} style={{ ...S.btnPrimary, opacity: hasChanges ? 1 : .4 }} onClick={() => onApply(finalActions)}>
+        Зберегти зміни
+      </button>
+    </Shell>
   );
 }
 
@@ -367,8 +464,9 @@ function Summary({ crew, crewName, onClose }) {
   );
 }
 
-function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary, onEditToday }) {
+function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary, onEditToday, onMarkNotReady, onEditNotReady }) {
   const lowCount = crew.components.filter((c) => c.qty <= c.min).length;
+  const notReady = crew.notReady || [];
   const [note, setNote] = useState("");
 
   const spentToday = useMemo(() => {
@@ -386,10 +484,14 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
 
   const renderComponent = (c, canAdd) => {
     const low = c.qty <= c.min;
+    const isDrone = c.type === "drone";
     return (
       <div key={c.id} style={{ ...S.row, ...(low ? S.rowLow : {}) }}>
         {canAdd && (
           <button className="pop" style={S.addBtn} onClick={() => { haptic(); onAddToLoadout(c.id); }} disabled={c.qty < 1}><Icon d={Ic.plus} size={16} /></button>
+        )}
+        {isDrone && (
+          <button className="pop" style={S.wrenchBtn} onClick={() => { haptic(); onMarkNotReady(c); }} disabled={c.qty < 1}><Icon d={Ic.wrench} size={15} /></button>
         )}
         <div style={{ flex: 1 }}>
           <div style={S.rowName}>{c.name}</div>
@@ -473,6 +575,20 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
             ? <div style={S.todayEmpty}>Витрат сьогодні немає</div>
             : Object.entries(spentToday).map(([n, v]) => (
               <div key={n} style={S.todayRow}><span>{n}</span><b>−{v.qty} {v.unit}</b></div>
+            ))}
+        </div>
+
+        <div style={{ ...S.todayBox, marginTop: 12 }}>
+          <div style={{ ...S.todayLabel, color: "#ff6b6b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon d={Ic.wrench} size={14} color="#ff6b6b" /> Не БГ</span>
+            {notReady.length > 0 && (
+              <button className="pop" style={S.todayEdit} onClick={() => { haptic(); onEditNotReady(); }}><Icon d={Ic.gear} size={15} /></button>
+            )}
+          </div>
+          {notReady.length === 0
+            ? <div style={S.todayEmpty}>Усі борти боєготові</div>
+            : notReady.map((nr, i) => (
+              <div key={i} style={S.todayRow}><span>{nr.name}</span><b>{nr.qty} {nr.unit}</b></div>
             ))}
         </div>
 
@@ -716,6 +832,8 @@ const S = {
   todayLabel: { fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: "#f2a65e", marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 },
   todayEmpty: { color: "#5b6472", fontSize: 13 },
   todayEdit: { background: "none", border: "none", color: "#4a5364", cursor: "pointer", padding: 2, display: "grid", placeItems: "center" },
+  wrenchBtn: { background: "#2a1f1a", border: "1px solid #5a3f2f", color: "#f2a65e", width: 30, height: 30, borderRadius: 8, cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 },
+  nrAction: { flex: 1, background: "#0c0f14", border: "1px solid #232c38", padding: "9px 8px", borderRadius: 8, fontSize: 12, cursor: "pointer" },
   todayRow: { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", color: "#cdd5e0" },
   calHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   calNav: { background: "#141923", border: "1px solid #1c222c", color: "#cdd5e0", width: 36, height: 36, borderRadius: 8, cursor: "pointer", display: "grid", placeItems: "center" },
