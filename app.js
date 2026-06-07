@@ -97,7 +97,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v7</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v8</div>
           </div>
         </div>
       </header>
@@ -137,6 +137,7 @@ function App() {
               })}
               onClearLoadout={() => setCrewLoadout(() => ({}))}
               onSummary={() => setModal("summary")}
+              onEditToday={() => setModal("editToday")}
               onLaunch={(note) => {
                 update((cr) => {
                   const items = [];
@@ -235,7 +236,74 @@ function App() {
       }} />}
 
       {modal === "summary" && <Summary crew={crew} crewName={active} onClose={() => setModal(null)} />}
+
+      {modal === "editToday" && <EditToday crew={crew} onClose={() => setModal(null)} onApply={(changes) => {
+        update((cr) => {
+          // changes: { name: newQty } — нова сумарна витрата за сьогодні для кожної позиції
+          const today = todayStr();
+          // поточна сумарна витрата за сьогодні по назві
+          const cur = {};
+          cr.history.filter((h) => h.date === today).forEach((h) => h.items.forEach((it) => {
+            cur[it.name] = (cur[it.name] || 0) + it.qty;
+          }));
+          Object.entries(changes).forEach(([name, newQty]) => {
+            const oldQty = cur[name] || 0;
+            const diff = newQty - oldQty; // додатний — списали більше, відʼємний — повернули
+            if (diff === 0) return;
+            const comp = cr.components.find((x) => x.name === name);
+            if (!comp) return;
+            // коригуємо залишок: більше витрати → менше залишок
+            comp.qty = Math.max(0, comp.qty - diff);
+            // фіксуємо коригувальний запис в історії дня
+            cr.history.unshift({
+              date: today, ts: Date.now(), kind: "manual",
+              note: "коригування витрат",
+              items: [{ name: comp.name, qty: diff, unit: comp.unit }],
+            });
+          });
+          return cr;
+        });
+        setModal(null);
+      }} />}
     </div>
+  );
+}
+
+function EditToday({ crew, onClose, onApply }) {
+  const today = todayStr();
+  const spent = {};
+  crew.history.filter((h) => h.date === today).forEach((h) => h.items.forEach((it) => {
+    spent[it.name] = { qty: (spent[it.name] ? spent[it.name].qty : 0) + it.qty, unit: it.unit };
+  }));
+  const [vals, setVals] = useState(() => {
+    const o = {};
+    Object.entries(spent).forEach(([n, v]) => { o[n] = String(v.qty); });
+    return o;
+  });
+
+  const changes = {};
+  Object.entries(spent).forEach(([n, v]) => {
+    const nv = vals[n] === "" ? 0 : +vals[n];
+    if (!Number.isNaN(nv) && nv !== v.qty) changes[n] = nv;
+  });
+  const hasChanges = Object.keys(changes).length > 0;
+
+  return (
+    <Shell title="Виправити витрати за добу" onClose={onClose}>
+      <div style={S.confirmText}>Зміна витрати автоматично відкоригує залишок на складі.</div>
+      <div style={S.scrollList}>
+        {Object.entries(spent).map(([n, v]) => (
+          <div key={n} style={S.intakeRow}>
+            <span style={{ flex: 1 }}>{n} <span style={S.muted}>({v.unit})</span></span>
+            <input style={S.miniInput} type="number" inputMode="numeric" value={vals[n]}
+              onChange={(e) => setVals({ ...vals, [n]: e.target.value })} />
+          </div>
+        ))}
+      </div>
+      <button disabled={!hasChanges} style={{ ...S.btnPrimary, opacity: hasChanges ? 1 : .4 }} onClick={() => onApply(changes)}>
+        Зберегти зміни
+      </button>
+    </Shell>
   );
 }
 
@@ -299,7 +367,7 @@ function Summary({ crew, crewName, onClose }) {
   );
 }
 
-function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary }) {
+function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary, onEditToday }) {
   const lowCount = crew.components.filter((c) => c.qty <= c.min).length;
   const [note, setNote] = useState("");
 
@@ -395,7 +463,12 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
         </div>
 
         <div style={S.todayBox}>
-          <div style={S.todayLabel}>Витрачено за добу</div>
+          <div style={{ ...S.todayLabel, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Витрачено за добу</span>
+            {Object.keys(spentToday).length > 0 && (
+              <button className="pop" style={S.todayEdit} onClick={() => { haptic(); onEditToday(); }}><Icon d={Ic.gear} size={15} /></button>
+            )}
+          </div>
           {Object.keys(spentToday).length === 0
             ? <div style={S.todayEmpty}>Витрат сьогодні немає</div>
             : Object.entries(spentToday).map(([n, v]) => (
@@ -642,6 +715,7 @@ const S = {
   todayBox: { marginTop: 16, background: "#11151d", border: "1px solid #1a202a", borderRadius: 12, padding: 14 },
   todayLabel: { fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: "#f2a65e", marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 },
   todayEmpty: { color: "#5b6472", fontSize: 13 },
+  todayEdit: { background: "none", border: "none", color: "#4a5364", cursor: "pointer", padding: 2, display: "grid", placeItems: "center" },
   todayRow: { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", color: "#cdd5e0" },
   calHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   calNav: { background: "#141923", border: "1px solid #1c222c", color: "#cdd5e0", width: 36, height: 36, borderRadius: 8, cursor: "pointer", display: "grid", placeItems: "center" },
