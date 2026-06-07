@@ -99,7 +99,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v9</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v10</div>
           </div>
         </div>
       </header>
@@ -311,7 +311,10 @@ function EditNotReady({ crew, onClose, onApply }) {
     return o;
   });
 
-  const remaining = (nr) => nr.qty - (ops[nr.name]?.writeOff || 0) - (ops[nr.name]?.restore || 0);
+  const remaining = (nr) => {
+    const op = ops[nr.name] || { writeOff: 0, restore: 0 };
+    return nr.qty - op.writeOff - op.restore;
+  };
 
   const bump = (name, field, delta, max) => {
     setOps((prev) => {
