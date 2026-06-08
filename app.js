@@ -109,6 +109,7 @@ function App() {
   const [active, setActive] = useState(() => Object.keys(loadStore())[0]);
   const [tab, setTab] = useState("stock");
   const [loadout, setLoadout] = useState({});
+  const [supplyUse, setSupplyUse] = useState({});
   const crew = crews[active] || crews[Object.keys(crews)[0]];
 
   useEffect(() => { saveStore(crews); }, [crews]);
@@ -116,6 +117,8 @@ function App() {
   const update = (fn) => setCrews((c) => ({ ...c, [active]: fn(structuredClone(c[active])) }));
   const setCrewLoadout = (fn) => setLoadout((l) => ({ ...l, [active]: fn(l[active] || {}) }));
   const curLoadout = loadout[active] || {};
+  const setCrewSupplyUse = (fn) => setSupplyUse((l) => ({ ...l, [active]: fn(l[active] || {}) }));
+  const curSupplyUse = supplyUse[active] || {};
 
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
@@ -139,7 +142,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v14</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v15</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -219,6 +222,25 @@ function App() {
                   return cr;
                 });
                 setCrewLoadout(() => ({}));
+              }}
+              supplyUse={curSupplyUse}
+              onAddToSupplyUse={(id) => setCrewSupplyUse((su) => ({ ...su, [id]: (su[id] || 0) + 1 }))}
+              onSupplyUseChange={(id, d) => setCrewSupplyUse((su) => {
+                const n = (su[id] || 0) + d; const copy = { ...su };
+                if (n <= 0) delete copy[id]; else copy[id] = n; return copy;
+              })}
+              onClearSupplyUse={() => setCrewSupplyUse(() => ({}))}
+              onWriteOffSupplies={(note) => {
+                update((cr) => {
+                  const items = [];
+                  Object.entries(curSupplyUse).forEach(([id, q]) => {
+                    const c = cr.components.find((x) => x.id === id);
+                    if (c) { c.qty = Math.max(0, c.qty - q); items.push({ name: c.name, qty: q, unit: c.unit }); }
+                  });
+                  if (items.length) logEntry(cr, "manual", items, note);
+                  return cr;
+                });
+                setCrewSupplyUse(() => ({}));
               }} />
           : <History crew={crew} />}
       </main>
@@ -587,10 +609,11 @@ function Summary({ crew, crewName, onClose }) {
   );
 }
 
-function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary, onEditToday, onMarkNotReady, onEditNotReady }) {
+function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoadoutChange, onClearLoadout, onLaunch, onSummary, onEditToday, onMarkNotReady, onEditNotReady, supplyUse, onAddToSupplyUse, onSupplyUseChange, onClearSupplyUse, onWriteOffSupplies }) {
   const lowCount = crew.components.filter((c) => c.qty <= c.min).length;
   const notReady = crew.notReady || [];
   const [note, setNote] = useState("");
+  const [supplyNote, setSupplyNote] = useState("");
 
   const spentToday = useMemo(() => {
     const m = {};
@@ -605,13 +628,22 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
     return c ? { ...c, count: q } : null;
   }).filter(Boolean);
 
+  const supplyItems = Object.entries(supplyUse || {}).map(([id, q]) => {
+    const c = crew.components.find((x) => x.id === id);
+    return c ? { ...c, count: q } : null;
+  }).filter(Boolean);
+
   const renderComponent = (c, canAdd) => {
     const low = c.qty <= c.min;
     const isDrone = c.type === "drone";
+    const isSupply = c.type === "supply";
     return (
       <div key={c.id} style={{ ...S.row, ...(low ? S.rowLow : {}) }}>
         {canAdd && (
           <button className="pop" style={S.addBtn} onClick={() => { haptic(); onAddToLoadout(c.id); }} disabled={c.qty < 1}><Icon d={Ic.plus} size={16} /></button>
+        )}
+        {isSupply && (
+          <button className="pop" style={S.addBtn} onClick={() => { haptic(); onAddToSupplyUse(c.id); }} disabled={c.qty < 1}><Icon d={Ic.plus} size={16} /></button>
         )}
         {isDrone && (
           <button className="pop" style={S.wrenchBtn} onClick={() => { haptic(); onMarkNotReady(c); }} disabled={c.qty < 1}><Icon d={Ic.wrench} size={15} /></button>
@@ -682,6 +714,32 @@ function Stock({ crew, loadout, onIntake, onAdd, onGear, onAddToLoadout, onLoado
                 value={note} onChange={(e) => setNote(e.target.value)} />
               <button className="pop" style={S.btnLaunch} onClick={() => { haptic(30); onLaunch(note.trim()); setNote(""); }}>
                 <Icon d={Ic.send} size={16} /> ВИЛІТ — списати з таблиці
+              </button>
+            </React.Fragment>
+          )}
+        </div>
+
+        <div style={{ ...S.loadout, marginTop: 12 }}>
+          <div style={S.loadoutHead}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon d={Ic.minus} size={14} color="#8a93a3" /> Витрата розхідників</span>
+            {supplyItems.length > 0 && <button style={S.clearBtn} onClick={onClearSupplyUse}>Очистити</button>}
+          </div>
+          {supplyItems.length === 0 ? (
+            <div style={S.loadoutHint}>Натисніть «+» біля розхідника, щоб списати його за добу</div>
+          ) : (
+            <React.Fragment>
+              {supplyItems.map((it) => (
+                <div key={it.id} style={S.loadoutRow}>
+                  <span style={{ flex: 1 }}>{it.name}</span>
+                  <button className="pop" style={S.stepBtn} onClick={() => { haptic(); onSupplyUseChange(it.id, -1); }}><Icon d={Ic.minus} size={13} /></button>
+                  <span style={S.count}>{it.count}</span>
+                  <button className="pop" style={S.stepBtn} onClick={() => { haptic(); onSupplyUseChange(it.id, +1); }} disabled={it.count >= it.qty}><Icon d={Ic.plus} size={13} /></button>
+                </div>
+              ))}
+              <input style={{ ...S.input, marginTop: 10, marginBottom: 0 }} placeholder="Примітка (необов'язково)"
+                value={supplyNote} onChange={(e) => setSupplyNote(e.target.value)} />
+              <button className="pop" style={{ ...S.btnPrimary, marginTop: 10 }} onClick={() => { haptic(30); onWriteOffSupplies(supplyNote.trim()); setSupplyNote(""); }}>
+                <Icon d={Ic.minus} size={16} /> Списати розхідники
               </button>
             </React.Fragment>
           )}
