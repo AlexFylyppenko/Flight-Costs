@@ -16,6 +16,7 @@ const Ic = {
   download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   gear: "M20 7h-9M14 17H5M17 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM7 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   wrench: "M14.7 6.3a4 4 0 0 1-5.6 5.6L3 18l3 3 6.1-6.1a4 4 0 0 1 5.6-5.6l-2.5 2.5-2-2 2.5-2.5z",
+  shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
 };
 function Icon({ d, size = 18, color = "currentColor", style }) {
   return React.createElement("svg", {
@@ -64,6 +65,45 @@ function saveStore(crews) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(crews)); } catch (e) {}
 }
 
+// ---------- резервне копіювання ----------
+function exportData(crews) {
+  const payload = {
+    app: "oblik-bk",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    crews,
+  };
+  const text = JSON.stringify(payload, null, 2);
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `oblik-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function parseImportedData(text) {
+  // Повертає об'єкт crews або кидає помилку з зрозумілим текстом
+  let data;
+  try { data = JSON.parse(text); } catch (e) { throw new Error("Файл пошкоджено або це не файл резервної копії."); }
+  const crews = data && data.crews ? data.crews : data; // підтримка як обгорнутого, так і голого формату
+  if (!crews || typeof crews !== "object" || Array.isArray(crews)) throw new Error("У файлі немає даних екіпажів.");
+  const names = Object.keys(crews);
+  if (names.length === 0) throw new Error("У файлі немає жодного екіпажу.");
+  // базова перевірка структури кожного екіпажу
+  for (const n of names) {
+    const c = crews[n];
+    if (!c || !Array.isArray(c.components)) throw new Error("Структура даних у файлі некоректна.");
+    if (!Array.isArray(c.history)) c.history = [];
+    if (!Array.isArray(c.notReady)) c.notReady = [];
+  }
+  return crews;
+}
+
 function App() {
   const [crews, setCrews] = useState(loadStore);
   const [active, setActive] = useState(() => Object.keys(loadStore())[0]);
@@ -99,18 +139,23 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v13</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v14</div>
           </div>
         </div>
-        <div className="ua-flag" aria-hidden="true">
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
-          <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button className="pop" style={S.backupBtn} onClick={() => { haptic(); setModal("backup"); }}>
+            <Icon d={Ic.shield} size={18} color="#5ec8f2" />
+          </button>
+          <div className="ua-flag" aria-hidden="true">
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+            <div className="ua-seg"><div className="ua-blue"></div><div className="ua-yellow"></div></div>
+          </div>
         </div>
       </header>
 
@@ -261,6 +306,13 @@ function App() {
       }} />}
 
       {modal === "summary" && <Summary crew={crew} crewName={active} onClose={() => setModal(null)} />}
+
+      {modal === "backup" && <Backup crews={crews} onClose={() => setModal(null)} onRestore={(imported) => {
+        setCrews(imported);
+        setActive(Object.keys(imported)[0]);
+        setLoadout({});
+        setModal(null);
+      }} />}
 
       {modal === "editNotReady" && <EditNotReady crew={crew} onClose={() => setModal(null)} onApply={(actions) => {
         update((cr) => {
@@ -430,6 +482,64 @@ function buildSummaryText(crew, crewName) {
     "",
     section("Витратники:", byType("supply")),
   ].join("\n");
+}
+
+function Backup({ crews, onClose, onRestore }) {
+  const fileRef = useRef(null);
+  const [pending, setPending] = useState(null); // дані, що очікують підтвердження
+  const [error, setError] = useState("");
+  const crewCount = Object.keys(crews).length;
+
+  const onFile = (e) => {
+    setError("");
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = parseImportedData(String(reader.result));
+        setPending(imported);
+      } catch (err) {
+        setError(err.message || "Не вдалося прочитати файл.");
+      }
+    };
+    reader.onerror = () => setError("Не вдалося прочитати файл.");
+    reader.readAsText(file);
+    e.target.value = ""; // дозволити повторний вибір того ж файлу
+  };
+
+  if (pending) {
+    const names = Object.keys(pending);
+    return (
+      <Shell title="Підтвердити відновлення" onClose={onClose}>
+        <div style={S.confirmText}>
+          Файл містить {names.length} екіпаж(і/ів): {names.join(", ")}.
+          <br /><br />
+          Поточні дані ({crewCount} екіпаж(і/ів)) буде <b style={{ color: "#ff6b6b" }}>повністю замінено</b> вмістом файлу. Дію не можна скасувати.
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={{ ...S.btnGhost, flex: 1 }} onClick={() => setPending(null)}>Назад</button>
+          <button style={{ ...S.btnDanger, flex: 1 }} onClick={() => onRestore(pending)}>Замінити дані</button>
+        </div>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell title="Резервне копіювання" onClose={onClose}>
+      <div style={S.confirmText}>
+        Збережіть усі дані ({crewCount} екіпаж(і/ів)) у файл, щоб не втратити їх при перевстановленні застосунку. Відновлення замінює поточні дані вмістом файлу.
+      </div>
+      <button style={S.btnPrimary} onClick={() => { haptic(); exportData(crews); }}>
+        <Icon d={Ic.download} size={16} /> Зберегти у файл
+      </button>
+      <button style={{ ...S.btnGhost, width: "100%", marginTop: 10 }} onClick={() => fileRef.current && fileRef.current.click()}>
+        Відновити з файлу
+      </button>
+      <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={onFile} />
+      {error ? <div style={{ ...S.confirmText, color: "#ff6b6b", marginTop: 12, marginBottom: 0 }}>{error}</div> : null}
+    </Shell>
+  );
 }
 
 function Summary({ crew, crewName, onClose }) {
@@ -847,6 +957,7 @@ const S = {
   todayEdit: { background: "none", border: "none", color: "#4a5364", cursor: "pointer", padding: 2, display: "grid", placeItems: "center" },
   wrenchBtn: { background: "#2a1f1a", border: "1px solid #5a3f2f", color: "#f2a65e", width: 30, height: 30, borderRadius: 8, cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 },
   nrAction: { flex: 1, background: "#0c0f14", border: "1px solid #232c38", padding: "9px 8px", borderRadius: 8, fontSize: 12, cursor: "pointer" },
+  backupBtn: { background: "#141923", border: "1px solid #232c38", width: 36, height: 36, borderRadius: 8, cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 },
   todayRow: { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", color: "#cdd5e0" },
   calHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   calNav: { background: "#141923", border: "1px solid #1c222c", color: "#cdd5e0", width: 36, height: 36, borderRadius: 8, cursor: "pointer", display: "grid", placeItems: "center" },
