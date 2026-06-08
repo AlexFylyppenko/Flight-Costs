@@ -99,7 +99,7 @@ function App() {
           <Icon d={Ic.boxes} size={22} color="#f2a65e" />
           <div>
             <div className="app-title" style={S.title}>ОБЛІК · ДРОНИ / БК</div>
-            <div className="app-sub" style={S.sub}>польовий журнал витрат · v12</div>
+            <div className="app-sub" style={S.sub}>польовий журнал витрат · v13</div>
           </div>
         </div>
         <div className="ua-flag" aria-hidden="true">
